@@ -1,0 +1,29 @@
+[package]
+name = "desktop-manager"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+iced = {version = "0.14", features=["wgpu", "tokio", "sipper", "advanced", "image", "svg"]}
+iced_runtime = "0.14"
+iced_layershell = "0.19"
+wayland-client = "0.31"
+niri-ipc = "26.4.0"
+chrono = "0.4"
+typemap_rev = "0.4"
+dyn-clone = "1"
+mpris = "2"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.13" }
+indexmap = "2.14"
+debug-derive = "2.1.2"
+regex = "1.13.1"
+downcast-rs = "2"
+nf-icons = "0.1.0"
+enumflags2 = "0.7"
+pulsectl-rs = "0.3"
+hyprland = { git = "https://github.com/hyprland-community/hyprland-rs", branch = "master" }
+async-trait = "0.1.92"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
