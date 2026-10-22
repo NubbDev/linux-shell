@@ -21,7 +21,7 @@ pub use volume::*;
 pub use workspace::WorkspacePill;
 
 pub trait WindowComponent: DynClone + Debug + Send + Sync + 'static {
-    fn new(display_id: u32) -> Self
+    fn new(display: String) -> Self
     where
         Self: Sized;
     fn id(&self, id: WindowId) -> Id {
@@ -33,7 +33,7 @@ pub trait WindowComponent: DynClone + Debug + Send + Sync + 'static {
         id: WindowId,
         state: &'a AppState,
     ) -> iced::Element<'a, crate::event::AppEvent>;
-    fn display_id(&self) -> u32;
+    fn display(&self) -> &String;
     fn anchor(&self) -> Anchor;
     fn identifiers(&self) -> Vec<Identifiers> {
         Vec::new()

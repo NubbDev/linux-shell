@@ -1,15 +1,14 @@
 use std::collections::BTreeMap;
 
-use iced::{Color, Font, Task, Theme, theme::Style, window::Id};
+use iced::{Color, Task, Theme, theme::Style, window::Id};
 use iced_layershell::settings::{LayerShellSettings, Settings, StartMode};
 use typemap_rev::TypeMap;
-use wayland_client::Connection;
+use wayland_client::{Connection, protocol::wl_output::WlOutput};
 
 use crate::{animations, backend::ImageCache};
 
 use super::{
     animations::Animationable,
-    backend::DisplayOutput,
     colors,
     event::AppEvent,
     view::{LayerInfo, WindowComponent},
@@ -27,9 +26,7 @@ impl Default for Connections {
 }
 
 pub struct AppState {
-    pub displays: BTreeMap<u32, DisplayOutput>,
     pub layers: BTreeMap<Id, LayerInfo>,
-
     pub windows: BTreeMap<Id, Box<dyn WindowComponent>>,
     pub data: TypeMap,
     pub images: ImageCache,
@@ -39,8 +36,16 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn get_display_by_name(&self, name: &str) -> Option<&DisplayOutput> {
-        self.displays.values().find(|d| d.name() == name)
+    pub fn get_monitor(&self, display: &str) -> Option<&crate::data::Monitor> {
+        self.data
+            .get::<crate::data::Monitor>()
+            .and_then(|monitors| monitors.get(display))
+    }
+
+    pub fn get_display_output(&self, display: &str) -> Option<&WlOutput> {
+        self.data
+            .get::<crate::data::Displays>()
+            .and_then(|outputs| outputs.get(display))
     }
 
     pub fn animations<T: Animationable + 'static>(&self) -> Option<&T> {
@@ -58,7 +63,6 @@ impl AppState {
 
 pub fn run() -> (AppState, Task<AppEvent>) {
     let state = AppState {
-        displays: BTreeMap::new(),
         layers: BTreeMap::new(),
         windows: BTreeMap::new(),
         data: TypeMap::new(),
@@ -79,7 +83,6 @@ pub fn initial_settings() -> Settings {
             ..Default::default()
         },
         antialiasing: true,
-
         default_font: crate::DEFAULT_FONT,
         ..Default::default()
     }

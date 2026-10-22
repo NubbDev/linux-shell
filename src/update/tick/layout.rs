@@ -1,13 +1,18 @@
 use std::collections::BTreeMap;
 
-use iced::{Task, window::Id};
+use iced::{
+    Task,
+    alignment::{Horizontal, Vertical},
+    window::Id,
+};
+use typemap_rev::TypeMap;
 
 use crate::{
     animations::marquee::{MarqueeKey, Marquees},
-    backend::DisplayOutput,
-    event::{AnimEvent, AppEvent, WindowEvent},
+    data::Monitor,
+    event::{AnimEvent, AppEvent, WidgetLayout, WindowEvent},
     view::{
-        LayerInfo, RowGroup, WindowComponent,
+        LayerInfo, WindowComponent,
         components::marquee_content_id,
         operations::{Bounds, FindBounds},
     },
@@ -18,7 +23,6 @@ pub fn window_bound(
     layers: &BTreeMap<Id, LayerInfo>,
 ) -> Task<AppEvent> {
     let mut tasks = Vec::with_capacity(windows.len());
-
     for (win_id, window) in windows.iter() {
         let Some(_layer) = layers.get(win_id) else {
             continue;
@@ -28,21 +32,30 @@ pub fn window_bound(
         let win_id = *win_id;
 
         let rect = iced::advanced::widget::operate(FindBounds::new(id))
-            .map(move |b| handle_window_bounds(win_id, b))
-            .map(AppEvent::Window);
+            .map(move |b| handle_window_bounds(win_id, b));
+
         tasks.push(rect);
     }
 
     Task::batch(tasks)
 }
 
-pub fn display(displays: &BTreeMap<u32, DisplayOutput>) -> Task<AppEvent> {
+pub fn display(data: &TypeMap) -> Task<AppEvent> {
+    let Some(displays) = data.get::<Monitor>() else {
+        return Task::none();
+    };
     let mut tasks = Vec::with_capacity(displays.len());
 
-    for display in displays.values() {
-        for group in [RowGroup::Left, RowGroup::Center, RowGroup::Right] {
-            let layout = WindowEvent::ComputateLayout(display.clone(), group);
-            tasks.push(Task::done(layout).map(AppEvent::Window));
+    for display in displays.keys() {
+        for align in [Horizontal::Left, Horizontal::Center, Horizontal::Right] {
+            let display = display.clone();
+            let layout = WidgetLayout::Horizontal { display, align };
+            tasks.push(Task::done(layout.into()));
+        }
+        for align in [Vertical::Top, Vertical::Center, Vertical::Bottom] {
+            let display = display.clone();
+            let layout = WidgetLayout::Vertical { display, align };
+            tasks.push(Task::done(layout.into()));
         }
     }
 
@@ -66,10 +79,14 @@ pub fn marquee_bounds(map: Option<&Marquees>) -> Task<AppEvent> {
     Task::batch(tasks)
 }
 
-fn handle_window_bounds(id: Id, bound: Bounds) -> WindowEvent {
+fn handle_window_bounds(id: Id, bound: Bounds) -> AppEvent {
     match bound {
-        Bounds::Container(rect) => WindowEvent::BoundsChanged(id, rect),
-        _ => WindowEvent::None,
+        Bounds::Window(rect) => WidgetLayout::Bounds {
+            window: id,
+            size: rect,
+        }
+        .into(),
+        _ => AppEvent::Empty,
     }
 }
 

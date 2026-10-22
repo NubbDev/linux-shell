@@ -1,40 +1,18 @@
-use std::collections::{BTreeMap, HashSet};
-
-// use hyprland::{
-//     data::{Workspace, Workspaces}, event_listener::WorkspaceEventData, shared::{HyprData, WorkspaceType},
-// };
-use iced::futures::{SinkExt, channel::mpsc::Sender};
+use iced::futures::channel::mpsc::Sender;
 use serde::{Deserialize, Deserializer};
-use typemap_rev::{TypeMap, TypeMapKey};
 
-use crate::{backend::EventType, event::{HyprlandEvent, HyprlandReceived, HyprlandSend}};
-
-// pub fn current() -> hyprland::Result<HyprWorkspaces> {
-//     let workspaces = Workspaces::get()?;
-//     let active_workspace_ids = super::monitor::active_workspace_ids()?
-//         .into_iter()
-//         .collect::<HashSet<_>>();
-
-//     Ok(HyprWorkspaces(
-//         (workspaces
-//             .iter())
-//             .map(|workspace| {
-//                 let mut workspace = HyprWorkspace::from(workspace);
-//                 workspace.is_active = active_workspace_ids.contains(&workspace.id);
-//                 (
-//                     workspace.id,
-//                     workspace,
-//                 )
-//             })
-//             .collect(),
-//     ))
-// }
-
+use crate::{
+    backend::EventType,
+    event::{HyprlandEvent, HyprlandReceived},
+};
 
 pub async fn change(workspace_id: i32, sender: Sender<EventType>) {
     if let Some(workspace) = get_workspace_by_id(workspace_id).await {
-        let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceSwitched { id: workspace.id().unwrap() }.into();
-        handle_send(hypr_event, sender).await;
+        let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceSwitched {
+            id: workspace.id().unwrap(),
+        }
+        .into();
+        super::handle_send(hypr_event, sender).await;
     }
 }
 
@@ -42,20 +20,24 @@ pub async fn added(workspace_id: i32, sender: Sender<EventType>) {
     match fetch().await {
         Ok(workspaces) => match workspaces.iter().find(|w| w.id() == Some(workspace_id)) {
             Some(workspace) => {
-                let position = workspaces.iter().filter(|w| w.info().monitor == workspace.info().monitor).position(|w| w.id() == workspace.id());
+                let position = workspaces
+                    .iter()
+                    .filter(|w| w.info().monitor == workspace.info().monitor)
+                    .position(|w| w.id() == workspace.id());
                 let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceCreated {
                     id: workspace.id().unwrap(),
                     name: workspace.info().name.clone(),
                     monitor: workspace.info().monitor.clone(),
                     position: position.map(|p| p as i32).unwrap_or(-1),
-                }.into();
-                handle_send(hypr_event, sender).await;
-            },
+                }
+                .into();
+                super::handle_send(hypr_event, sender).await;
+            }
             None => {
                 eprintln!("Workspace with id {} not found", workspace_id);
                 return;
             }
-        }
+        },
         Err(e) => {
             eprintln!("Failed to fetch workspaces: {}", e);
             return;
@@ -65,17 +47,20 @@ pub async fn added(workspace_id: i32, sender: Sender<EventType>) {
 
 pub async fn deleted(workspace_id: i32, sender: Sender<EventType>) {
     let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceRemoved { id: workspace_id }.into();
-    handle_send(hypr_event, sender).await;
+    super::handle_send(hypr_event, sender).await;
 }
 
-pub async fn moved(workspace_id: i32, monitor: String, sender: Sender<EventType>) {
-    if let Some(workspace) = get_workspace_by_id(workspace_id).await {
+pub async fn moved(workspace_id: Option<i32>, monitor: String, sender: Sender<EventType>) {
+    if let Some(workspace_id) = workspace_id
+        && let Some(workspace) = get_workspace_by_id(workspace_id).await
+    {
         let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceMoved {
             id: workspace.id().unwrap(),
-            monitor: monitor.clone()
-        }.into();
+            monitor: monitor.clone(),
+        }
+        .into();
 
-        handle_send(hypr_event, sender).await;
+        super::handle_send(hypr_event, sender).await;
     }
 }
 
@@ -83,10 +68,11 @@ pub async fn renamed(workspace_id: i32, sender: Sender<EventType>) {
     if let Some(workspace) = get_workspace_by_id(workspace_id).await {
         let hypr_event: HyprlandEvent = HyprlandReceived::WorkspaceRenamed {
             id: workspace.id().unwrap(),
-            name: workspace.info().name.clone()
-        }.into();
+            name: workspace.info().name.clone(),
+        }
+        .into();
 
-        handle_send(hypr_event, sender).await;
+        super::handle_send(hypr_event, sender).await;
     }
 }
 
@@ -98,31 +84,11 @@ async fn get_workspace_by_id(workspace_id: i32) -> Option<Workspace> {
                 eprintln!("Workspace with id {} not found", workspace_id);
                 return None;
             }
-        }
+        },
         Err(e) => {
             eprintln!("Failed to fetch workspaces: {}", e);
             return None;
         }
-    }
-}
-
-async fn handle_send(event: HyprlandEvent, mut sender: Sender<EventType>) {
-    if let Err(e) = sender.send(EventType::event(event)).await {
-        eprintln!("Failed to send Hyprland event: {e}");
-    }
-}
-
-#[derive(Debug, Clone)] // Represents a workspace in Hyprland (Address, Data)
-pub struct HyprWorkspaces(pub BTreeMap<String, RawHyprWorkspace>);
-
-impl TypeMapKey for HyprWorkspaces {
-    type Value = Self;
-}
-
-impl super::super::Patch for HyprWorkspaces {
-    fn apply(self: Box<Self>, data: &mut TypeMap) -> iced::Task<super::super::AppEvent> {
-        data.insert::<HyprWorkspaces>(*self);
-        iced::Task::none()
     }
 }
 
@@ -151,9 +117,15 @@ pub struct RawHyprWorkspace {
 }
 
 impl RawHyprWorkspace {
-    pub fn id(&self) -> Option<i32> { self.id }
-    pub fn is_special(&self) -> bool { matches!(self.w_type, WorkspaceType::Special) }
-    pub fn is_regular(&self) -> bool { matches!(self.w_type, WorkspaceType::Regular) }
+    pub fn id(&self) -> Option<i32> {
+        self.id
+    }
+    pub fn is_special(&self) -> bool {
+        matches!(self.w_type, WorkspaceType::Special)
+    }
+    pub fn is_regular(&self) -> bool {
+        matches!(self.w_type, WorkspaceType::Regular)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -162,16 +134,28 @@ pub enum WorkspaceType {
     Special,
 }
 
+impl<'a> Deserialize<'a> for WorkspaceType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "normal" => Ok(WorkspaceType::Regular),
+            "special" => Ok(WorkspaceType::Special),
+            _ => Err(serde::de::Error::custom(format!(
+                "Unknown workspace type: {}",
+                s
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(try_from = "RawHyprWorkspace")]
-pub enum Workspace {
-    Regular {
-        id: i32,
-        info: WorkspaceInfo,
-    },
-    Special {
-        info: WorkspaceInfo,
-    },
+pub(super) enum Workspace {
+    Regular { id: i32, info: WorkspaceInfo },
+    Special { info: WorkspaceInfo },
 }
 
 impl Workspace {
@@ -187,6 +171,14 @@ impl Workspace {
             Workspace::Regular { info, .. } => info,
             Workspace::Special { info } => info,
         }
+    }
+
+    pub fn is_special(&self) -> bool {
+        matches!(self, Workspace::Special { .. })
+    }
+
+    pub fn is_regular(&self) -> bool {
+        matches!(self, Workspace::Regular { .. })
     }
 }
 
@@ -208,14 +200,12 @@ impl TryFrom<RawHyprWorkspace> for Workspace {
         };
         match raw.w_type {
             WorkspaceType::Regular => Ok(Workspace::Regular {
-                id: raw.id.ok_or_else(|| {
-                    format!("regular workspace {} has no id", raw.name)
-                })?,
+                id: raw
+                    .id
+                    .ok_or_else(|| format!("regular workspace {} has no id", raw.name))?,
                 info,
             }),
-            WorkspaceType::Special => Ok(Workspace::Special {
-                info,
-            }),
+            WorkspaceType::Special => Ok(Workspace::Special { info }),
         }
     }
 }
@@ -234,33 +224,20 @@ pub struct WorkspaceInfo {
     pub tiled_layout: String,
 }
 
-impl<'a> Deserialize<'a> for WorkspaceType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'a>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "normal" => Ok(WorkspaceType::Regular),
-            "special" => Ok(WorkspaceType::Special),
-            _ => Err(serde::de::Error::custom(format!("Unknown workspace type: {}", s))),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawActiveWorkspace {
     pub address: String,
-    pub id: u32,
+    pub id: i32,
+    #[serde(rename = "type")]
     pub w_type: WorkspaceType,
     pub name: String,
 }
 
-async fn fetch() -> std::io::Result<Vec<Workspace>> {
+pub async fn fetch() -> std::io::Result<Vec<Workspace>> {
     super::request("j/workspaces").await
 }
 
-pub fn handle_de<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+pub fn handle_de<'de, D: Deserializer<'de>>(deserializer: D) -> Result<i32, D::Error> {
     let workspace: RawActiveWorkspace = Deserialize::deserialize(deserializer)?;
     Ok(workspace.id)
 }

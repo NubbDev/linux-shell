@@ -2,7 +2,6 @@ use crate::{app::AppState, backend::Patch, event::AppEvent};
 use iced::{Task, exit};
 
 mod animation;
-mod display;
 mod image;
 // mod niri;
 mod events;
@@ -21,13 +20,14 @@ pub fn run(state: &mut AppState, event: AppEvent) -> Task<AppEvent> {
         AppEvent::AnimationTick => tick::animate(state),
         AppEvent::UpdateData(patch) => update_data(state, patch),
         AppEvent::Window(window_event) => window::handle(state, window_event),
-        AppEvent::Display(display_event) => display::handle(state, display_event),
+        AppEvent::Wayland(display_event) => events::wayland::handle(state, display_event),
         AppEvent::Widgets(widget_event) => widget::handle(state, widget_event),
         AppEvent::Niri(niri_event) => events::niri::handle(state, niri_event),
         AppEvent::Hyprland(hyprland_event) => events::hyprland::handle(state, hyprland_event),
         AppEvent::Register(iden) => register_iden::handle(state, iden),
         AppEvent::Animation(anim) => animation::handle(state, anim),
         AppEvent::Media(media) => events::media::handle(state, media),
+        AppEvent::Layout(layout_event) => window::layout::handle(state, layout_event),
 
         _ => Task::none(),
     }

@@ -26,12 +26,12 @@ use super::super::{WindowComponent, pills_style};
 
 #[derive(Debug, Clone)]
 pub struct VolumePill {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for VolumePill {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
         let hovers = state.animations::<HoverAnimations>();
@@ -68,8 +68,8 @@ impl WindowComponent for VolumePill {
         Id::from(format!("{}-{}", self.namespace(), id))
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {

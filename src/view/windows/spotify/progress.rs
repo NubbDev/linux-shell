@@ -2,7 +2,7 @@ use iced::{
     Border, Color, Element, Font, Length, Padding, Theme,
     alignment::Vertical,
     font::Weight,
-    widget::{Id, ProgressBar, container, progress_bar, stack, text::Alignment},
+    widget::{Container, Id, ProgressBar, container, progress_bar, stack, text::Alignment},
     window::Id as WindowId,
 };
 use iced_layershell::reexport::Anchor;
@@ -13,7 +13,7 @@ use crate::{
     backend::{Spotify, SpotifyStatus},
     colors,
     event::AppEvent,
-    view::components::SplitText,
+    view::components::{SplitText, window},
 };
 
 use super::super::{WindowComponent, pills_style};
@@ -23,20 +23,21 @@ const BAR_HEIGHT: f32 = 20.0;
 
 #[derive(Debug, Clone)]
 pub struct SpotifyProgress {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for SpotifyProgress {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
-        let Some(status) = state.data.get::<SpotifyStatus>() else {
-            return container("").into();
+        let (Some(status), Some(data)) = (
+            state.data.get::<SpotifyStatus>(),
+            state.data.get::<Spotify>(),
+        ) else {
+            return window("").into();
         };
-        let Some(data) = state.data.get::<Spotify>() else {
-            return container("").into();
-        };
+
         let duration = data.duration.as_millis() as u64;
         let current_pos = status.estimated_position().as_millis() as u64;
 
@@ -77,19 +78,21 @@ impl WindowComponent for SpotifyProgress {
                 },
             });
 
-        container(stack![bar, label_text])
-            .id(self.id(id))
-            .padding(Padding::from([4, 5]))
-            .style(|_| pills_style(colors::PRIMARY))
-            .into()
+        window(
+            container(stack![bar, label_text])
+                .padding(Padding::from([4, 5]))
+                .style(|_| pills_style(colors::PRIMARY)),
+        )
+        .id(self.id(id))
+        .into()
     }
 
     fn id(&self, id: WindowId) -> Id {
         Id::from(format!("{}-{}", self.namespace(), id))
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {

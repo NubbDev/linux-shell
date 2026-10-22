@@ -6,13 +6,12 @@ use crate::{
     view::WindowComponent,
 };
 
-mod bound;
-mod layout;
+pub mod layout;
 pub fn handle(state: &mut AppState, event: WindowEvent) -> Task<AppEvent> {
     match event {
         WindowEvent::Open(id, info) => open_window(state, id, info),
-        WindowEvent::BoundsChanged(id, bounds) => bound::computate(state, id, bounds),
-        WindowEvent::ComputateLayout(display, group) => layout::computate(state, display, group),
+        // WindowEvent::BoundsChanged(id, bounds) => bound::computate(state, id, bounds),
+        // WindowEvent::ComputateLayout(display, group) => layout::computate(state, display, group),
         _ => Task::none(),
     }
 }

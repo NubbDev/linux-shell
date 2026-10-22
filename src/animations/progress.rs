@@ -6,7 +6,7 @@ use std::{
 use iced::{Animation, animation::Easing};
 use typemap_rev::TypeMap;
 
-use crate::{animations::AnimationableProgress, backend::HyprWorkspaces};
+use crate::animations::AnimationableProgress;
 
 pub struct ProgressSlot {
     pub anim: Animation<bool>,

@@ -1,9 +1,8 @@
-
 use crate::event::ImageEvent;
 use crate::{app::AppState, event::AppEvent};
 use dyn_clone::DynClone;
-use iced::futures::{SinkExt, StreamExt};
 use iced::futures::channel::mpsc::{SendError, Sender, UnboundedSender, channel, unbounded};
+use iced::futures::{SinkExt, StreamExt};
 use iced::{Subscription, Task};
 use iced_runtime::futures::BoxStream;
 use iced_runtime::futures::backend::default::time;
@@ -23,12 +22,10 @@ mod volume;
 mod wayland;
 
 pub use date_time::TimeDate;
-pub use hyprland::{HyprWorkspaces};
 pub use image::{ImageCache, ImageSource};
 pub use media::{Spotify, SpotifyCoverArt, SpotifyStatus};
 pub use system::{Cpu, Gpu, Memory};
 pub use volume::AudioDevices;
-pub use wayland::DisplayOutput;
 
 pub fn subscription(state: &AppState) -> Subscription<AppEvent> {
     Subscription::batch(vec![
@@ -79,7 +76,10 @@ impl From<EventType> for AppEvent {
 fn process() -> BoxStream<AppEvent> {
     let (tx, rx) = channel::<EventType>(1000);
     std::thread::spawn(move || {
-        let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
             eprintln!("Failed to build tokio runtime");
             return;
         };

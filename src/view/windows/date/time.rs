@@ -5,18 +5,21 @@ use iced::{
 };
 use iced_layershell::reexport::Anchor;
 
-use crate::{DEFAULT_FONT, app::AppState, backend::TimeDate, colors, event::AppEvent};
+use crate::{
+    DEFAULT_FONT, app::AppState, backend::TimeDate, colors, event::AppEvent,
+    view::components::window,
+};
 
 use super::super::{WindowComponent, pills_style};
 
 #[derive(Debug, Clone)]
 pub struct TimePill {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for TimePill {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
         let Some(time_date) = state.data.get::<TimeDate>() else {
@@ -32,19 +35,21 @@ impl WindowComponent for TimePill {
             .style(|_| text::Style {
                 color: Some(colors::PRIMARY),
             });
-        container(text_item)
-            .id(self.id(id))
-            .padding(Padding::from([4, 5]))
-            .style(|_| pills_style(colors::PRIMARY))
-            .into()
+        window(
+            container(text_item)
+                .padding(Padding::from([4, 5]))
+                .style(|_| pills_style(colors::PRIMARY)),
+        )
+        .id(self.id(id))
+        .into()
     }
 
     fn id(&self, id: WindowId) -> Id {
         Id::from(format!("{}-{}", self.namespace(), id))
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {

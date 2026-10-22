@@ -6,7 +6,8 @@ mod layout;
 
 pub fn handle(state: &mut AppState) -> Task<AppEvent> {
     let win_tasks = layout::window_bound(&mut state.windows, &state.layers);
-    let display_tasks = layout::display(&state.displays);
+
+    let display_tasks = layout::display(&state.data);
 
     let marquee_tasks = layout::marquee_bounds(state.animations::<Marquees>());
 

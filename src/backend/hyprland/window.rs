@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Deserializer};
 
 use super::workspace;
@@ -13,7 +12,7 @@ pub struct RawHyprWindow {
     at: [i32; 2],
     size: [u32; 2],
     #[serde(deserialize_with = "workspace::handle_de")]
-    workspace: u32,
+    workspace: i32,
     floating: bool,
     monitor: u32,
     class: String,

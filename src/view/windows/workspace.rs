@@ -2,42 +2,51 @@ use std::time::Instant;
 
 use iced::{
     Border, Element, Padding, Theme,
-    widget::{Id, MouseArea, container, mouse_area, row},
+    widget::{Id, MouseArea, column, container, mouse_area, row},
     window::Id as WindowId,
 };
 use iced_layershell::reexport::Anchor;
+use typemap_rev::TypeMap;
 
 use crate::{
-    animations::{AnimationableProgress, workspace::WorkspaceActive}, app::AppState,  colors::{self, mix_colors}, event::{AppEvent, HyprlandEvent, HyprlandSend}, view::LayerInfo,
+    animations::{AnimationableProgress, workspace::WorkspaceActive},
+    app::AppState,
+    colors::{self, mix_colors},
+    data::{Monitor, Workspace},
+    event::{AppEvent, HyprlandEvent, HyprlandSend},
+    view::{LayerInfo, components::window},
 };
 
 use super::{WindowComponent, pills_style};
 
-const PILL_HEIGHT: f32 = 21.0;
-const PILL_WIDTH: f32 = PILL_HEIGHT * 2.0;
+const PILL_HEIGHT: f32 = PILL_WIDTH * 2.0;
+const PILL_WIDTH: f32 = 21.0;
 
 #[derive(Debug, Clone)]
 pub struct WorkspacePill {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for WorkspacePill {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
-        // if let Some(layer) = state.layers.get(&id)
-        //     && let Some(animation) = state.animations::<WorkspaceActive>()
-        // {
-        //     let workspaces = load_workspaces(state, layer);
-        //     let row_box = row(workspaces.into_iter().map(|w| pill(w, animation).into())).spacing(2);
+        if let Some(layer) = state.layers.get(&id)
+            && let Some(animation) = state.animations::<WorkspaceActive>()
+        {
+            let workspaces = load_workspaces(&state.data, layer);
+            let col_box =
+                column(workspaces.into_iter().map(|w| pill(w, animation).into())).spacing(2);
 
-        //     return container(row_box)
-        //         .id(self.id(id))
-        //         .padding(Padding::from([4, 5]))
-        //         .style(|_| pills_style(colors::COLOR3))
-        //         .into();
-        // };
+            return window(
+                container(col_box)
+                    .padding(Padding::from([4, 5]))
+                    .style(|_| pills_style(colors::COLOR3)),
+            )
+            .id(self.id(id))
+            .into();
+        };
         container("").into()
     }
 
@@ -45,8 +54,8 @@ impl WindowComponent for WorkspacePill {
         Id::from(format!("{}-{}", self.namespace(), id))
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {
@@ -54,50 +63,50 @@ impl WindowComponent for WorkspacePill {
     }
 
     fn anchor(&self) -> Anchor {
-        Anchor::Top
+        Anchor::Left
     }
 }
 
-// fn pill<'a>(workspace: , animation: &'a WorkspaceActive) -> MouseArea<'a, AppEvent> {
-//     let index = workspace.id;
-//     let now = Instant::now();
+fn pill<'a>(workspace: &'a Workspace, animation: &'a WorkspaceActive) -> MouseArea<'a, AppEvent> {
+    let index = workspace.id;
+    let now = Instant::now();
 
-//     let (width, color) = match animation.progress(&index, now) {
-//         Some(progress) => (
-//             PILL_HEIGHT + (PILL_WIDTH - PILL_HEIGHT) * progress,
-//             mix_colors(colors::COLOR4, colors::COLOR3, progress),
-//         ),
-//         None => (PILL_HEIGHT, colors::COLOR4),
-//     };
+    let (height, color) = match animation.progress(&index, now) {
+        Some(progress) => (
+            PILL_WIDTH + (PILL_HEIGHT - PILL_WIDTH) * progress,
+            mix_colors(colors::COLOR4, colors::COLOR3, progress),
+        ),
+        None => (PILL_WIDTH, colors::COLOR4),
+    };
 
-//     let click_event: HyprlandEvent = HyprlandSend::SwitchWorkspace(index).into();
+    let click_event: HyprlandEvent = HyprlandSend::SwitchWorkspace(index).into();
 
-//     mouse_area(
-//         container("")
-//             .height(PILL_HEIGHT)
-//             .width(width)
-//             .style(move |_: &Theme| container::Style {
-//                 background: Some(color.into()),
-//                 border: Border {
-//                     radius: 1.0.into(),
-//                     ..Default::default()
-//                 },
-//                 ..Default::default()
-//             }),
-//     )
-//     .on_press(click_event.into())
-// }
+    mouse_area(
+        container("")
+            .height(height)
+            .width(PILL_WIDTH)
+            .style(move |_: &Theme| container::Style {
+                background: Some(color.into()),
+                border: Border {
+                    radius: 1.0.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+    )
+    .on_press(click_event.into())
+}
 
-// fn load_workspaces(state: &AppState, layer: &LayerInfo) -> Vec<HyprWorkspace> {
-//     if let Some(display) = state.displays.get(&layer.display_id())
-//         && let Some(HyprWorkspaces(ws)) = state.data.get::<HyprWorkspaces>()
-//     {
-//         let d_name = display.name();
-//         let mut workspaces = (ws.iter().filter(|(_, w)| w.monitor == d_name))
-//             .map(|(_, w)| w.clone())
-//             .collect::<Vec<_>>();
-//         workspaces.sort_by_key(|w| w.id);
-//         return workspaces;
-//     }
-//     vec![]
-// }
+fn load_workspaces<'a>(data: &'a TypeMap, layer: &'a LayerInfo) -> Vec<&'a Workspace> {
+    if let Some(monitors) = data.get::<Monitor>()
+        && let Some(monitor) = monitors.get(layer.display())
+        && let Some(ws) = data.get::<Workspace>()
+    {
+        let mut workspaces = (ws.iter().filter(|(_, w)| w.monitor == monitor.name))
+            .map(|(_, w)| w)
+            .collect::<Vec<_>>();
+        workspaces.sort_by_key(|w| w.position);
+        return workspaces;
+    }
+    vec![]
+}

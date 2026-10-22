@@ -4,40 +4,103 @@ use iced::futures::channel::mpsc::Sender;
 
 use crate::backend;
 
-use super::{screencast, workspace, monitor, window};
+use super::{monitor, screencast, window, workspace};
 
 #[derive(Debug, Clone)]
 pub enum RawEvent {
-    WorkspaceSwitched { id: i32 },
-    FocusedMonitor { name: String, workspace_id: i32 },
-    ActiveWindow { address: String },
+    WorkspaceSwitched {
+        id: i32,
+    },
+    MonitorFocused {
+        name: String,
+        workspace_id: i32,
+    },
+    ActiveWindow {
+        address: String,
+    },
     FullscreenWindow(bool),
-    MonitorRemoved { id: i32 },
-    MonitorAdded { id: i32 },
-    WorkspaceCreated { id: i32 },
-    WorkspaceRemoved { id: i32 },
-    WorkspaceMoved { id: i32, monitor: String },
-    WorkspaceRenamed { id: i32, name: String },
-    SpecialActivated { id: Option<i32>, monitor: String },
-    LayoutActivated { keyboard_name: String, layout_name: String },
-    WindowOpened { address: String, workspace_name: String, class: String, title: String },
-    WindowClosed { address: String },
-    WindowKilled { address: String },
-    WindowMoved { address: String, workspace_id: i32 },
-    LayerOpened { namespace: String },
-    LayerClosed { namespace: String },
-    FloatingToggled { address: String, is_floating: bool },
-    WindowUrgent { address: String },
-    ScreenCasting { state: bool, owner: screencast::ScreenCastOwner },
-    WindowTitleChanged { address: String, title: String },
-    GroupToggled { state: bool, address: String },
+    MonitorRemoved {
+        id: u32,
+    },
+    MonitorAdded {
+        id: u32,
+    },
+    WorkspaceCreated {
+        id: i32,
+    },
+    WorkspaceRemoved {
+        id: i32,
+    },
+    WorkspaceMoved {
+        id: Option<i32>,
+        monitor: String,
+    },
+    WorkspaceRenamed {
+        id: i32,
+        name: String,
+    },
+    SpecialActivated {
+        id: Option<i32>,
+        monitor: String,
+    },
+    LayoutActivated {
+        keyboard_name: String,
+        layout_name: String,
+    },
+    WindowOpened {
+        address: String,
+        workspace_name: String,
+        class: String,
+        title: String,
+    },
+    WindowClosed {
+        address: String,
+    },
+    WindowKilled {
+        address: String,
+    },
+    WindowMoved {
+        address: String,
+        workspace_id: i32,
+    },
+    LayerOpened {
+        namespace: String,
+    },
+    LayerClosed {
+        namespace: String,
+    },
+    FloatingToggled {
+        address: String,
+        is_floating: bool,
+    },
+    WindowUrgent {
+        address: String,
+    },
+    ScreenCasting {
+        state: bool,
+        owner: screencast::ScreenCastOwner,
+    },
+    WindowTitleChanged {
+        address: String,
+        title: String,
+    },
+    GroupToggled {
+        state: bool,
+        address: String,
+    },
     GroupMovedInto(String),
     GroupMovedOut(String),
     GroupIgnoredLocked(bool),
     GroupLocked(bool),
     ConfigReloaded,
-    WindowPinned { address: String, is_pinned: bool },
-    WindowMinimized { address: String, is_minimized: bool },
+    WindowPinned {
+        address: String,
+        is_pinned: bool,
+    },
+    WindowMinimized {
+        address: String,
+        is_minimized: bool,
+    },
     SystemBell(String),
     Unknown(String),
 }
@@ -53,14 +116,18 @@ impl FromStr for RawEvent {
 
         let event = match name {
             "workspacev2" => {
-                let id = data.split(',').next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                let id = data
+                    .split(',')
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<i32>()?;
                 RawEvent::WorkspaceSwitched { id }
-            },
+            }
             "focusedmonv2" => {
                 let mut parts = data.split(',');
                 let name = parts.next().ok_or("Missing monitor name")?.to_string();
                 let workspace_id = parts.next().ok_or("Missing workspace ID")?.parse::<i32>()?;
-                RawEvent::FocusedMonitor { name, workspace_id }
+                RawEvent::MonitorFocused { name, workspace_id }
             }
             "activewindowv2" => {
                 let address = data.to_string();
@@ -71,24 +138,46 @@ impl FromStr for RawEvent {
                 RawEvent::FullscreenWindow(is_fullscreen)
             }
             "monitorremovedv2" => {
-                let id = data.split(',').next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                let id = data
+                    .split(',')
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<u32>()?;
                 RawEvent::MonitorRemoved { id }
             }
             "monitoraddedv2" => {
-                let id = data.split(',').next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                let id = data
+                    .split(',')
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<u32>()?;
                 RawEvent::MonitorAdded { id }
             }
             "createworkspacev2" => {
-                let id = data.split(',').next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                let id = data
+                    .split(',')
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<i32>()?;
                 RawEvent::WorkspaceCreated { id }
             }
             "destroyworkspacev2" => {
-                let id = data.split(',').next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                let id = data
+                    .split(',')
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<i32>()?;
                 RawEvent::WorkspaceRemoved { id }
             }
             "moveworkspacev2" => {
                 let mut parts = data.split(',');
-                let id = parts.next().ok_or("Missing workspace ID")?.parse::<i32>()?;
+                // Special workspaces don't have an ID, so we need to handle that case, they instead use the workspace name
+
+                let id = parts
+                    .next()
+                    .ok_or("Missing workspace ID")?
+                    .parse::<i32>()
+                    .ok();
                 let _ = parts.next().ok_or("Missing workspace name")?.to_string();
                 let monitor = parts.next().ok_or("Missing monitor name")?.to_string();
                 RawEvent::WorkspaceMoved { id, monitor }
@@ -96,7 +185,10 @@ impl FromStr for RawEvent {
             "renameworkspace" => {
                 let mut parts = data.split(',');
                 let id = parts.next().ok_or("Missing workspace ID")?.parse::<i32>()?;
-                let name = parts.next().ok_or("Missing new workspace name")?.to_string();
+                let name = parts
+                    .next()
+                    .ok_or("Missing new workspace name")?
+                    .to_string();
                 RawEvent::WorkspaceRenamed { id, name }
             }
             "activespecialv2" => {
@@ -110,7 +202,10 @@ impl FromStr for RawEvent {
                 let mut parts = data.split(',');
                 let keyboard_name = parts.next().ok_or("Missing keyboard name")?.to_string();
                 let layout_name = parts.next().ok_or("Missing layout name")?.to_string();
-                RawEvent::LayoutActivated { keyboard_name, layout_name }
+                RawEvent::LayoutActivated {
+                    keyboard_name,
+                    layout_name,
+                }
             }
             "openwindow" => {
                 let mut parts = data.split(',');
@@ -118,7 +213,12 @@ impl FromStr for RawEvent {
                 let workspace_name = parts.next().ok_or("Missing workspace name")?.to_string();
                 let class = parts.next().ok_or("Missing window class")?.to_string();
                 let title = parts.next().ok_or("Missing window title")?.to_string();
-                RawEvent::WindowOpened { address, workspace_name, class, title }
+                RawEvent::WindowOpened {
+                    address,
+                    workspace_name,
+                    class,
+                    title,
+                }
             }
             "closewindow" => {
                 let address = data.to_string();
@@ -132,7 +232,10 @@ impl FromStr for RawEvent {
                 let mut parts = data.split(',');
                 let address = parts.next().ok_or("Missing window address")?.to_string();
                 let workspace_id = parts.next().ok_or("Missing workspace ID")?.parse::<i32>()?;
-                RawEvent::WindowMoved { address, workspace_id }
+                RawEvent::WindowMoved {
+                    address,
+                    workspace_id,
+                }
             }
             "openlayer" => {
                 let namespace = data.to_string();
@@ -147,7 +250,10 @@ impl FromStr for RawEvent {
                 let mut parts = data.split(',');
                 let address = parts.next().ok_or("Missing window address")?.to_string();
                 let is_floating = parts.next().ok_or("Missing floating state")? == "1";
-                RawEvent::FloatingToggled { address, is_floating }
+                RawEvent::FloatingToggled {
+                    address,
+                    is_floating,
+                }
             }
             "urgent" => {
                 let address = data.to_string();
@@ -158,8 +264,12 @@ impl FromStr for RawEvent {
                 let state = parts.next().ok_or("Missing screencast state")? == "1";
                 let owner_str = parts.next().ok_or("Missing screencast owner")?;
                 let owner = match owner_str {
-                    "monitor" => screencast::ScreenCastOwner::Monitor(parts.next().ok_or("Missing screencast name")?.to_string()),
-                    "window" => screencast::ScreenCastOwner::Window(parts.next().ok_or("Missing screencast name")?.to_string()),
+                    "monitor" => screencast::ScreenCastOwner::Monitor(
+                        parts.next().ok_or("Missing screencast name")?.to_string(),
+                    ),
+                    "window" => screencast::ScreenCastOwner::Window(
+                        parts.next().ok_or("Missing screencast name")?.to_string(),
+                    ),
                     "region" => screencast::ScreenCastOwner::Region,
                     _ => return Err(format!("Unknown screencast owner: {}", owner_str).into()),
                 };
@@ -204,7 +314,10 @@ impl FromStr for RawEvent {
                 let mut parts = data.split(',');
                 let address = parts.next().ok_or("Missing window address")?.to_string();
                 let is_minimized = parts.next().ok_or("Missing minimized state")? == "1";
-                RawEvent::WindowMinimized { address, is_minimized }
+                RawEvent::WindowMinimized {
+                    address,
+                    is_minimized,
+                }
             }
             "bell" => {
                 let address = data.to_string();
@@ -224,6 +337,11 @@ pub async fn handle(event: RawEvent, mut sender: Sender<backend::EventType>) {
         RawEvent::WorkspaceSwitched { id } => workspace::change(id, sender).await,
         RawEvent::WorkspaceMoved { id, monitor } => workspace::moved(id, monitor, sender).await,
         RawEvent::WorkspaceRenamed { id, name } => workspace::renamed(id, sender).await,
+        RawEvent::MonitorAdded { id } => monitor::added(id, sender).await,
+        RawEvent::MonitorRemoved { id } => monitor::removed(id, sender).await,
+        RawEvent::MonitorFocused { name, workspace_id } => {
+            monitor::focused(name, workspace_id, sender).await
+        }
         _ => {}
     }
 }

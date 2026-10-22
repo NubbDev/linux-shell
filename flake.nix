@@ -4,11 +4,18 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    configs.url = "path:/configs/nixos";
-    configs.inputs.nixpkgs.follows = "nixpkgs";   # keep nixpkgs unified
+    configs = {
+      url = "path:/configs/nixos";
+      inputs.nixpkgs.follows = "nixpkgs";   # keep nixpkgs unified
+    };
+
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, configs }: let
+  outputs = { self, nixpkgs, configs, nixgl }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
     rustShell = configs.devShells.${system}.rust;
@@ -22,19 +29,27 @@
         wayland
         wayland-protocols
         libGL
+        libglvnd
+        mesa
+        libdrm
         dbus
         libpulseaudio
         vulkan-loader
+        vulkan-tools
+
+        # Add the nixGL Vulkan wrapper for Mesa (AMD/Intel)
+        nixgl.packages.${system}.nixVulkanIntel
       ];
       shellHook = ''
         export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
           pkgs.wayland
           pkgs.libxkbcommon
+          pkgs.libglvnd
+          pkgs.mesa
+          pkgs.libdrm
           pkgs.vulkan-loader
         ]}"
-      '';
+    '';
     };
-
-
   };
 }

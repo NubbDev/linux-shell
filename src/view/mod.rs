@@ -7,7 +7,7 @@ mod layer;
 pub mod operations;
 mod windows;
 
-pub use layer::{LayerInfo, LayerType, RowGroup};
+pub use layer::{LayerInfo, LayerType};
 pub use windows::*;
 
 pub fn run(state: &AppState, id: Id) -> Element<'_, AppEvent> {

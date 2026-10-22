@@ -19,7 +19,7 @@ use crate::{
     event::{AppEvent, MediaEvent},
     view::{
         Identifiers,
-        components::{marquee, set_hover},
+        components::{marquee, set_hover, window},
         icons::{
             Icon,
             media::{BackwardIcon, ForwardIcon, PauseIcon, PlayIcon},
@@ -34,23 +34,22 @@ const ICON_SIZE: u32 = 20;
 
 #[derive(Debug, Clone)]
 pub struct SpotifyPill {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for SpotifyPill {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
 
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
-        let Some(song) = state.data.get::<Spotify>() else {
-            // println!("Spotify data not found in state");
-            return Container::new("").into();
+        let (Some(song), Some(status)) = (
+            state.data.get::<Spotify>(),
+            state.data.get::<SpotifyStatus>(),
+        ) else {
+            return window("").into();
         };
-        let Some(status) = state.data.get::<SpotifyStatus>() else {
-            // println!("Spotify status not found in state");
-            return Container::new("").into();
-        };
+
         let hovers = state.animations::<HoverAnimations>();
 
         let mut content = Row::new().spacing(4).align_y(Vertical::Center);
@@ -63,15 +62,17 @@ impl WindowComponent for SpotifyPill {
             .push(spotify_text(id, song))
             .push(media_control(status, id, hovers));
 
-        Container::new(content)
-            .id(self.id(id))
-            .padding(Padding::from([4, 5]))
-            .style(|_| pills_style(colors::SUCCESS))
-            .into()
+        window(
+            Container::new(content)
+                .padding(Padding::from([4, 5]))
+                .style(|_| pills_style(colors::SUCCESS)),
+        )
+        .id(self.id(id))
+        .into()
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {

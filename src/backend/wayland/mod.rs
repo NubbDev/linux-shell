@@ -1,18 +1,17 @@
 mod output;
-pub use output::DisplayOutput;
 use std::{hash::Hash, thread};
 
 use iced::{
     Subscription,
     futures::{
         SinkExt, StreamExt,
-        channel::mpsc::{Sender, unbounded},
+        channel::mpsc::{Sender, UnboundedSender, unbounded},
         stream::BoxStream,
     },
 };
 use wayland_client::Connection;
 
-use crate::event::{AppEvent, DisplayEvent};
+use crate::event::{AppEvent, WaylandEvent};
 
 pub struct ConnectionWrapper(pub Connection);
 
@@ -28,7 +27,7 @@ pub fn subscription(conn: Connection) -> Subscription<AppEvent> {
 
 fn wayland(conn: &ConnectionWrapper) -> BoxStream<'static, AppEvent> {
     let connection = conn.0.clone();
-    let (tx, mut rx) = unbounded::<AppEvent>();
+    let (tx, rx) = unbounded::<AppEvent>();
 
     println!("Connected to Wayland server");
     thread::spawn(move || {
@@ -38,6 +37,7 @@ fn wayland(conn: &ConnectionWrapper) -> BoxStream<'static, AppEvent> {
         let _registry = display.get_registry(&qh, ());
         let mut output_tracker = output::OutputTracker::default();
         let mut known_outputs: Vec<u32> = Vec::new();
+        let mut already_sent_outputs: Vec<u32> = Vec::new();
 
         loop {
             if event_queue.blocking_dispatch(&mut output_tracker).is_err() {
@@ -45,41 +45,50 @@ fn wayland(conn: &ConnectionWrapper) -> BoxStream<'static, AppEvent> {
             }
 
             for output in output_tracker.0.iter() {
-                if !known_outputs.contains(&output.id()) {
-                    known_outputs.push(output.id());
-                    if let Err(e) = tx
-                        .unbounded_send(AppEvent::Display(DisplayEvent::NewDisplay(output.clone())))
-                    {
-                        eprintln!("Failed to send new display event: {}", e);
-                    }
+                let output_id = output.0;
+                if !known_outputs.contains(&output_id) {
+                    known_outputs.push(output_id);
                 } else {
-                    if let Err(e) = tx.unbounded_send(AppEvent::Display(
-                        DisplayEvent::UpdateDisplay(output.clone()),
-                    )) {
-                        eprintln!("Failed to send new display event: {}", e);
+                    if output.1.is_empty() {
+                        continue;
                     }
+                    if already_sent_outputs.contains(&output_id) {
+                        continue;
+                    }
+                    let event = WaylandEvent::NewDisplay {
+                        name: output.1.clone(),
+                        display: output.2.clone(),
+                    };
+                    send_event(tx.clone(), event);
+                    already_sent_outputs.push(output_id);
                 }
             }
 
-            if output_tracker.0.len() < known_outputs.len() {
-                let removed_outputs: Vec<u32> = known_outputs
-                    .iter()
-                    .filter(|id| !output_tracker.0.iter().any(|output| output.id() == **id))
-                    .map(|id| *id)
-                    .collect();
+            let removed_outputs: Vec<u32> = known_outputs
+                .iter()
+                .filter(|id| !output_tracker.0.iter().any(|o| o.0 == **id))
+                .copied()
+                .collect();
 
-                for removed_id in removed_outputs {
-                    // println!("Display removed: {}", removed_id);
-                    known_outputs.retain(|id| *id != removed_id);
-                    if let Err(e) = tx
-                        .unbounded_send(AppEvent::Display(DisplayEvent::RemoveDisplay(removed_id)))
-                    {
-                        eprintln!("Failed to send remove display event: {}", e);
-                    }
+            // get the name of the removed outputs and send a RemoveDisplay event for each
+            for removed_output in removed_outputs.iter() {
+                if let Some(output) = output_tracker.0.iter().find(|o| o.0 == *removed_output) {
+                    let event = WaylandEvent::RemoveDisplay {
+                        name: output.1.clone(),
+                    };
+                    send_event(tx.clone(), event);
                 }
+                known_outputs.retain(|id| id != removed_output);
+                already_sent_outputs.retain(|id| id != removed_output);
             }
         }
     });
 
     Box::pin(rx)
+}
+
+fn send_event(tx: UnboundedSender<AppEvent>, event: WaylandEvent) {
+    if let Err(e) = tx.unbounded_send(event.into()) {
+        eprintln!("Failed to send Wayland event: {}", e);
+    }
 }

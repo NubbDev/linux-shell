@@ -213,3 +213,9 @@ impl<'a, Message: 'a, Theme: 'a, R: advanced::text::Renderer<Font = iced::Font> 
         Self::new(widget)
     }
 }
+pub fn split_text<'a, Theme, R>(content: impl Into<String>, split_x: f32) -> SplitText<'a, Theme, R>
+where
+    R: advanced::text::Renderer<Font = iced::Font> + 'a,
+{
+    SplitText::new(content, split_x)
+}

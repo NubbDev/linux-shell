@@ -14,6 +14,7 @@ pub struct FindBounds {
 #[derive(Debug, Clone)]
 pub enum Bounds {
     Container(Rectangle),
+    Window(Rectangle),
     Scrollable(Rectangle, Rectangle),
 }
 
@@ -58,7 +59,11 @@ impl Operation<Bounds> for FindBounds {
 
     fn text(&mut self, _id: Option<&Id>, _bounds: Rectangle, _text: &str) {}
 
-    fn custom(&mut self, _id: Option<&Id>, _bounds: Rectangle, _state: &mut dyn Any) {}
+    fn custom(&mut self, id: Option<&Id>, bounds: Rectangle, _state: &mut dyn Any) {
+        if id == Some(&self.target) && self.found.is_none() {
+            self.found = Some(Bounds::Window(bounds));
+        }
+    }
 
     fn finish(&self) -> Outcome<Bounds> {
         if let Some(bounds) = &self.found {

@@ -16,9 +16,12 @@ use crate::{
     backend::{Cpu, Gpu, Memory},
     colors,
     event::AppEvent,
-    view::icons::{
-        Icon,
-        system::{CpuIcon, GpuIcon, MemoryIcon},
+    view::{
+        components::window,
+        icons::{
+            Icon,
+            system::{CpuIcon, GpuIcon, MemoryIcon},
+        },
     },
 };
 
@@ -28,12 +31,12 @@ use super::super::{WindowComponent, pills_style};
 
 #[derive(Debug, Clone)]
 pub struct SystemPill {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for SystemPill {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
         let (Some(cpu), Some(memory), Some(gpu)) = (
@@ -44,21 +47,22 @@ impl WindowComponent for SystemPill {
             return container("").into();
         };
 
-
         let mut system_stats = Row::new().spacing(6).align_y(Vertical::Center);
         system_stats = system_stats.push(create_stat(CpuIcon, cpu.usage() * 100.0));
         system_stats = system_stats.push(create_stat(MemoryIcon, memory.usage() * 100.0));
         system_stats = system_stats.push(create_stat(GpuIcon, gpu.usage()));
 
-        container(system_stats)
-            .id(self.id(id))
-            .padding(Padding::from([4, 5]))
-            .style(|_| pills_style(colors::COLOR5))
-            .into()
+        window(
+            container(system_stats)
+                .padding(Padding::from([4, 5]))
+                .style(|_| pills_style(colors::COLOR5)),
+        )
+        .id(self.id(id))
+        .into()
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {

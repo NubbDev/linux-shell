@@ -1,5 +1,3 @@
-use hyprland::shared::WorkspaceType;
-
 #[derive(Debug, Clone)]
 pub enum HyprlandEvent {
     Send(HyprlandSend),
@@ -7,13 +5,42 @@ pub enum HyprlandEvent {
 }
 #[derive(Debug, Clone)]
 pub enum HyprlandReceived {
-    WorkspaceSwitched { id: i32 },
-    WorkspaceCreated { id: i32, name: String, monitor: String, position: i32 },
-    WorkspaceRemoved { id: i32 },
-    WorkspaceMoved { id: i32, monitor: String },
-    WorkspaceRenamed { id: i32, name: String },
-    MonitorAdded { name: String },
-    MonitorRemoved { name: String },
+    WorkspaceSwitched {
+        id: i32,
+    },
+    WorkspaceCreated {
+        id: i32,
+        name: String,
+        monitor: String,
+        position: i32,
+    },
+    WorkspaceRemoved {
+        id: i32,
+    },
+    WorkspaceMoved {
+        id: i32,
+        monitor: String,
+    },
+    WorkspaceRenamed {
+        id: i32,
+        name: String,
+    },
+    MonitorAdded {
+        id: u32,
+        name: String,
+        dimensions: (u32, u32),
+        position: (i32, i32),
+        refresh_rate: f32,
+        make: String,
+        model: String,
+    },
+    MonitorRemoved {
+        id: u32,
+    },
+    MonitorFocused {
+        name: String,
+        workspace: i32,
+    },
 }
 
 #[derive(Debug, Clone)]

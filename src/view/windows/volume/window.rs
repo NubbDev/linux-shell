@@ -30,12 +30,12 @@ use super::super::{WindowComponent, pills_style};
 
 #[derive(Debug, Clone)]
 pub struct VolumePanel {
-    display_id: u32,
+    display: String,
 }
 
 impl WindowComponent for VolumePanel {
-    fn new(display_id: u32) -> Self {
-        Self { display_id }
+    fn new(display: String) -> Self {
+        Self { display }
     }
     fn view<'a>(&self, id: WindowId, state: &'a AppState) -> Element<'a, AppEvent> {
         let Some(audio_devices) = state.data.get::<AudioDevices>() else {
@@ -62,8 +62,8 @@ impl WindowComponent for VolumePanel {
         Id::from(format!("{}-{}", self.namespace(), id))
     }
 
-    fn display_id(&self) -> u32 {
-        self.display_id
+    fn display(&self) -> &String {
+        &self.display
     }
 
     fn namespace(&self) -> String {
